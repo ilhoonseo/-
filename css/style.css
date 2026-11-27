@@ -103,18 +103,18 @@ h3 { font-size: 17px; color: var(--green-dark); margin-top: 4px; }
 .sub { color: var(--muted); line-height: 1.5; }
 
 /* 과목 탭 */
-.tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
 .tab {
-  border: 0; border-radius: 12px 12px 4px 4px; padding: 10px 4px; cursor: pointer;
+  border: 0; border-radius: 10px; padding: 10px 4px; cursor: pointer;
   font: inherit; font-weight: 800; font-size: 15px; color: #fff; opacity: .55; white-space: nowrap; overflow: hidden;
   background: var(--c); transition: opacity .15s, transform .15s;
 }
-.tab.selected { opacity: 1; transform: translateY(-2px); box-shadow: 0 3px 0 rgba(0,0,0,.15); }
+.tab.selected { opacity: 1; transform: translateY(-1px); box-shadow: 0 3px 0 rgba(0,0,0,.18), 0 0 0 2px #fff inset; }
 
 /* 모드 */
 .modes {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px;
-  padding: 10px; border-radius: 4px 4px 14px 14px; background: #fff;
+  padding: 10px; border-radius: 14px; background: #fff;
   border-top: 4px solid var(--subject);
 }
 .mode {

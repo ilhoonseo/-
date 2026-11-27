@@ -7,7 +7,8 @@
 
   const CONTENT = window.KOALA_CONTENT;
   const SUBJECTS = CONTENT.subjects.slice();
-  const BUILTIN_MODE_IDS = SUBJECTS.flatMap((s) => s.modes.map((m) => m.id));
+  const LEARN_SUBJECTS = SUBJECTS.filter((s) => s.id !== "bell");
+  const BUILTIN_MODE_IDS = LEARN_SUBJECTS.flatMap((s) => s.modes.map((m) => m.id));
 
   // ---------- 선생님이 직접 만드는 문제 ----------
   const SAMPLE_CUSTOM = [
@@ -72,7 +73,7 @@
   const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* 저장 불가 환경 */ } };
 
   // ---------- 상태 ----------
-  let subjectId = MODE_MAP[save.last.mode] ? save.last.subject : "math";
+  let subjectId = MODE_MAP[save.last.mode] ? MODE_MAP[save.last.mode].subject.id : "math";
   let modeId = MODE_MAP[save.last.mode] ? save.last.mode : "add";
   let gameType = GAME_TYPES[save.last.type] ? save.last.type : "normal";
 
@@ -880,9 +881,10 @@
     { id: "bonus", emoji: "👑", name: "황금 잎", desc: "보너스 문제 맞히기", test: (g) => g.bonusCorrect >= 1 },
     { id: "time20", emoji: "⏱", name: "번개 손", desc: "타임어택에서 20문제 정답", test: (g) => g.type === "time" && g.correct >= 20 },
     { id: "nobee", emoji: "🛡️", name: "벌 피하기 달인", desc: "레벨 5 이상, 벌에 한 번도 안 쏘임", test: (g) => g.level >= 5 && g.beeHits === 0 && g.type !== "practice" },
-    { id: "allsub", emoji: "🌈", name: "골고루 박사", desc: "4과목 모두 해 보기", test: () => SUBJECTS.filter((s) => s.id !== "custom").every((s) => s.modes.some((m) => save.played[m.id])) },
+    { id: "allsub", emoji: "🌈", name: "골고루 박사", desc: `${LEARN_SUBJECTS.length}과목 모두 해 보기`, test: () => LEARN_SUBJECTS.every((s) => s.modes.some((m) => save.played[m.id])) },
     { id: "modes10", emoji: "📚", name: "탐험가", desc: "10가지 모드 해 보기", test: () => Object.keys(save.played).length >= 10 },
     { id: "modesAll", emoji: "🗺️", name: "모든 모드 정복", desc: `${BUILTIN_MODE_IDS.length}가지 모드 모두 해 보기`, test: () => BUILTIN_MODE_IDS.every((id) => save.played[id]) },
+    { id: "bell", emoji: "🔔", name: "골든벨 도전자", desc: "골든벨에서 15문제 정답", test: (g) => g.mode.subject.id === "bell" && g.correct >= 15 },
     { id: "maker", emoji: "✏️", name: "출제 위원", desc: "직접 만든 문제로 게임하기", test: (g) => g.mode.id === "custom" },
     { id: "t100", emoji: "🐨", name: "코알라 친구", desc: "누적 정답 100개", test: () => save.totalCorrect >= 100 },
     { id: "t500", emoji: "🎓", name: "코알라 박사", desc: "누적 정답 500개", test: () => save.totalCorrect >= 500 },
