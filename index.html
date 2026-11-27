@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>코알라 연산 캐치 | 초등 수학 연산 웹게임</title>
+<meta name="description" content="코알라를 움직여 정답이 적힌 유칼립투스 잎을 받아먹는 초등 수학 연산 연습 게임" />
+<meta property="og:title" content="코알라 연산 캐치" />
+<meta property="og:description" content="정답 잎을 받아먹으며 덧셈·뺄셈·곱셈구구·나눗셈을 연습해요!" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐨</text></svg>" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    background: #e8f5e9;
+    color: #2e3b2f;
+    display: flex; flex-direction: column; align-items: center;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  #app { position: relative; width: 100%; max-width: 720px; height: 100%; display: flex; flex-direction: column; }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 12px; background: #4e7d4f; color: #fff; font-weight: 700;
+  }
+  header .stat { font-size: 15px; white-space: nowrap; }
+  #hearts { letter-spacing: 2px; }
+  #pauseBtn { background: rgba(255,255,255,.2); border: 0; color: #fff; font-size: 18px; border-radius: 8px; padding: 2px 10px; cursor: pointer; }
+  #problem {
+    text-align: center; font-size: clamp(28px, 7vw, 44px); font-weight: 800;
+    padding: 8px; background: #fffde7; border-bottom: 3px solid #c5e1a5; min-height: 64px;
+  }
+  #stage { position: relative; flex: 1; min-height: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(232,245,233,.96); padding: 20px; gap: 14px; text-align: center; overflow-y: auto;
+  }
+  .hidden { display: none !important; }
+  h1 { font-size: clamp(30px, 8vw, 46px); color: #3b6b3c; }
+  .sub { color: #5b6b5c; line-height: 1.5; }
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 440px; }
+  .btn {
+    border: 0; border-radius: 14px; padding: 14px 10px; font-size: 18px; font-weight: 800; cursor: pointer;
+    background: #fff; color: #3b6b3c; box-shadow: 0 4px 0 #a5c8a6; transition: transform .05s;
+    font-family: inherit;
+  }
+  .btn small { display: block; font-size: 12px; font-weight: 500; color: #6d7f6e; margin-top: 4px; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #a5c8a6; }
+  .btn.primary { background: #4e7d4f; color: #fff; box-shadow: 0 4px 0 #2f5530; }
+  .btn.selected { outline: 3px solid #ff9800; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .howto { font-size: 14px; color: #5b6b5c; background: #fff; border-radius: 12px; padding: 10px 14px; max-width: 440px; line-height: 1.6; }
+  .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 440px; }
+  .result-grid div { background: #fff; border-radius: 12px; padding: 10px; }
+  .result-grid b { display: block; font-size: 24px; color: #3b6b3c; }
+  #review { width: 100%; max-width: 440px; background: #fff; border-radius: 12px; padding: 10px 14px; text-align: left; max-height: 30vh; overflow-y: auto; }
+  #review h3 { font-size: 16px; margin-bottom: 6px; }
+  #review li { list-style: none; padding: 4px 0; border-bottom: 1px dashed #ddd; font-size: 16px; }
+  #review li .wrong { color: #d84315; text-decoration: line-through; margin-left: 6px; }
+  #review li .right { color: #2e7d32; font-weight: 800; }
+  #toast {
+    position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%);
+    font-size: 36px; font-weight: 900; pointer-events: none; opacity: 0; transition: opacity .2s;
+    text-shadow: 0 2px 0 #fff, 0 0 8px #fff;
+  }
+  footer { font-size: 11px; color: #7b8b7c; text-align: center; padding: 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="stat">⭐ <span id="score">0</span></span>
+    <span class="stat">Lv.<span id="level">1</span></span>
+    <span class="stat" id="hearts">❤️❤️❤️</span>
+    <button id="pauseBtn" aria-label="일시정지">⏸</button>
+  </header>
+  <div id="problem">🐨</div>
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div id="toast"></div>
+
+    <!-- 시작 화면 -->
+    <div class="overlay" id="startScreen">
+      <h1>🐨 코알라 연산 캐치</h1>
+      <p class="sub">배고픈 코알라에게 <b>정답</b>이 적힌<br/>유칼립투스 잎을 먹여 주세요!</p>
+      <div class="modes" id="modes">
+        <button class="btn selected" data-mode="add">➕ 덧셈<small>1~2학년</small></button>
+        <button class="btn" data-mode="sub">➖ 뺄셈<small>1~2학년</small></button>
+        <button class="btn" data-mode="mul">✖️ 곱셈구구<small>2학년</small></button>
+        <button class="btn" data-mode="div">➗ 나눗셈<small>3학년</small></button>
+        <button class="btn" data-mode="mix">🎲 섞어서<small>사칙연산 혼합</small></button>
+        <button class="btn" data-mode="blank">❓ 빈칸 채우기<small>□ 구하기</small></button>
+      </div>
+      <button class="btn primary" id="startBtn" style="width:100%;max-width:440px">게임 시작!</button>
+      <div class="howto">
+        ⌨️ 키보드 <b>← →</b> 또는 <b>A D</b> 로 이동<br/>
+        📱 화면을 <b>터치/드래그</b>해서 이동<br/>
+        정답 5개마다 레벨이 올라 잎이 빨라져요. 하트 3개를 지켜요!
+      </div>
+      <p class="sub" style="font-size:13px">🏆 최고 점수: <span id="bestStart">0</span></p>
+    </div>
+
+    <!-- 일시정지 -->
+    <div class="overlay hidden" id="pauseScreen">
+      <h1>⏸ 잠깐 쉬기</h1>
+      <div class="row">
+        <button class="btn primary" id="resumeBtn">계속하기</button>
+        <button class="btn" id="quitBtn">처음으로</button>
+      </div>
+    </div>
+
+    <!-- 결과 화면 -->
+    <div class="overlay hidden" id="endScreen">
+      <h1 id="endTitle">게임 끝!</h1>
+      <div class="result-grid">
+        <div>점수<b id="rScore">0</b></div>
+        <div>정답률<b id="rAcc">0%</b></div>
+        <div>최고 콤보<b id="rCombo">0</b></div>
+      </div>
+      <p class="sub" id="rBest"></p>
+      <div id="review"></div>
+      <div class="row">
+        <button class="btn primary" id="retryBtn">다시 하기</button>
+        <button class="btn" id="homeBtn">모드 선택</button>
+      </div>
+    </div>
+  </div>
+  <footer>코알라 연산 캐치 · 교육용 웹게임</footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- DOM ----------
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("game");
+  const ctx = canvas.getContext("2d");
+  const stage = $("stage");
+  const ui = {
+    score: $("score"), level: $("level"), hearts: $("hearts"), problem: $("problem"), toast: $("toast"),
+    start: $("startScreen"), pause: $("pauseScreen"), end: $("endScreen"),
+  };
+
+  // ---------- 상태 ----------
+  const MAX_HEARTS = 3;
+  let mode = "add";
+  let W = 0, H = 0, DPR = 1;
+  let state = "menu"; // menu | play | pause | end
+  let score, level, hearts, combo, maxCombo, correctCount, totalCount, wrongLog;
+  let koala, leaves, particles, current, waveDone, nextWaveAt, lastTime;
+  const keys = { left: false, right: false };
+  let pointerX = null;
+
+  // ---------- 유틸 ----------
+  const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = rand(0, i); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+
+  // ---------- 문제 생성 ----------
+  // 레벨이 오를수록 수의 범위가 커집니다.
+  function makeAdd(lv) {
+    const max = lv <= 2 ? 10 : lv <= 4 ? 20 : lv <= 6 ? 50 : 100;
+    const a = rand(1, max - 1), b = rand(1, Math.max(1, max - a));
+    return { text: `${a} + ${b} = ?`, answer: a + b };
+  }
+  function makeSub(lv) {
+    const max = lv <= 2 ? 10 : lv <= 4 ? 20 : lv <= 6 ? 50 : 100;
+    const a = rand(2, max), b = rand(1, a - 1);
+    return { text: `${a} − ${b} = ?`, answer: a - b };
+  }
+  function makeMul(lv) {
+    const dans = lv <= 2 ? [2, 5] : lv <= 4 ? [2, 3, 4, 5] : lv <= 6 ? [2, 3, 4, 5, 6, 7] : [2, 3, 4, 5, 6, 7, 8, 9];
+    const a = pick(dans), b = rand(1, 9);
+    return { text: `${a} × ${b} = ?`, answer: a * b };
+  }
+  function makeDiv(lv) {
+    const maxDiv = lv <= 2 ? 5 : lv <= 4 ? 7 : 9;
+    const b = rand(2, maxDiv), q = rand(1, 9);
+    return { text: `${b * q} ÷ ${b} = ?`, answer: q };
+  }
+  function makeBlank(lv) {
+    const t = pick(lv <= 3 ? ["add", "sub"] : ["add", "sub", "mul"]);
+    if (t === "mul") {
+      const a = rand(2, 9), b = rand(1, 9);
+      return { text: `${a} × □ = ${a * b}`, answer: b };
+    }
+    const max = lv <= 2 ? 10 : lv <= 5 ? 20 : 50;
+    if (t === "add") {
+      const a = rand(1, max - 1), b = rand(1, Math.max(1, max - a));
+      return Math.random() < 0.5 ? { text: `${a} + □ = ${a + b}`, answer: b } : { text: `□ + ${b} = ${a + b}`, answer: a };
+    }
+    const a = rand(2, max), b = rand(1, a - 1);
+    return { text: `${a} − □ = ${a - b}`, answer: b };
+  }
+  const generators = {
+    add: makeAdd, sub: makeSub, mul: makeMul, div: makeDiv, blank: makeBlank,
+    mix: (lv) => pick([makeAdd, makeSub, makeMul, makeDiv])(lv),
+  };
+
+  // 헷갈리기 쉬운 오답(정답 근처 수)을 만듭니다.
+  function makeWrongs(answer, n) {
+    const set = new Set();
+    const spread = Math.max(3, Math.ceil(answer * 0.3));
+    let guard = 0;
+    while (set.size < n && guard++ < 200) {
+      let w;
+      const r = Math.random();
+      if (r < 0.5) w = answer + pick([-1, 1, -2, 2]);
+      else if (r < 0.75 && answer >= 10) w = answer + pick([-10, 10]);
+      else w = answer + rand(-spread, spread);
+      if (w !== answer && w >= 0) set.add(w);
+    }
+    let k = 1;
+    while (set.size < n) { if (!set.has(answer + k)) set.add(answer + k); k++; }
+    return [...set];
+  }
+
+  // ---------- 사운드 (Web Audio, 파일 없이) ----------
+  let actx = null;
+  function beep(freqs, dur = 0.12, type = "sine", vol = 0.15) {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      let t = actx.currentTime;
+      freqs.forEach((f) => {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = type; o.frequency.value = f;
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        o.connect(g).connect(actx.destination);
+        o.start(t); o.stop(t + dur);
+        t += dur * 0.8;
+      });
+    } catch (e) { /* 소리 미지원 환경 무시 */ }
+  }
+  const sfx = {
+    good: () => beep([660, 880], 0.1, "triangle"),
+    bad: () => beep([220, 160], 0.18, "square", 0.08),
+    level: () => beep([523, 659, 784, 1047], 0.1, "triangle"),
+    over: () => beep([392, 330, 262], 0.25, "sine"),
+  };
+
+  // ---------- 화면 크기 ----------
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (koala) { koala.y = H - koala.r * 1.2; koala.x = Math.min(Math.max(koala.x, koala.r), W - koala.r); }
+  }
+  window.addEventListener("resize", resize);
+
+  // ---------- 게임 흐름 ----------
+  function startGame() {
+    score = 0; level = 1; hearts = MAX_HEARTS; combo = 0; maxCombo = 0;
+    correctCount = 0; totalCount = 0; wrongLog = [];
+    leaves = []; particles = [];
+    resize();
+    const r = Math.max(28, Math.min(44, W * 0.075));
+    koala = { x: W / 2, y: H - r * 1.2, r, mouth: 0, sad: 0 };
+    ui.start.classList.add("hidden"); ui.end.classList.add("hidden"); ui.pause.classList.add("hidden");
+    state = "play";
+    updateHud();
+    newWave();
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  function newWave() {
+    current = generators[mode](level);
+    ui.problem.textContent = current.text;
+    const count = W < 420 ? 3 : 4;
+    const values = shuffle([current.answer, ...makeWrongs(current.answer, count - 1)]);
+    const laneW = W / count;
+    const leafR = Math.max(26, Math.min(40, laneW * 0.32));
+    const speed = (H / 7.5) * (1 + (level - 1) * 0.13); // 레벨별 낙하 속도
+    leaves = values.map((v, i) => ({
+      value: v, correct: v === current.answer,
+      x: laneW * (i + 0.5) + rand(-laneW * 0.12, laneW * 0.12),
+      y: -leafR - rand(0, H * 0.12),
+      r: leafR, vy: speed * (0.9 + Math.random() * 0.2),
+      rot: Math.random() * Math.PI, sway: Math.random() * Math.PI * 2, alive: true,
+    }));
+    waveDone = false;
+  }
+
+  function resolve(isCorrect, chosen) {
+    if (waveDone) return;
+    waveDone = true;
+    totalCount++;
+    if (isCorrect) {
+      combo++; maxCombo = Math.max(maxCombo, combo);
+      correctCount++;
+      const gain = 10 + Math.min(combo - 1, 10) * 2 + (level - 1) * 2;
+      score += gain;
+      koala.mouth = 0.5;
+      showToast(combo >= 3 ? `${combo} 콤보! +${gain}` : `정답! +${gain}`, "#2e7d32");
+      sfx.good();
+      if (correctCount % 5 === 0) {
+        level++;
+        setTimeout(() => { if (state === "play") { showToast(`레벨 업! Lv.${level}`, "#ef6c00"); sfx.level(); } }, 450);
+      }
+    } else {
+      combo = 0; hearts--;
+      koala.sad = 0.8;
+      wrongLog.push({ text: current.text, answer: current.answer, chosen });
+      showToast(chosen === null ? `놓쳤어요! 정답 ${current.answer}` : `앗! 정답은 ${current.answer}`, "#d84315");
+      sfx.bad();
+    }
+    // 남은 잎은 흩어지며 사라짐
+    leaves.forEach((l) => { if (l.alive) { l.fading = 1; } });
+    updateHud();
+    if (hearts <= 0) { setTimeout(endGame, 700); return; }
+    nextWaveAt = performance.now() + (isCorrect ? 500 : 1100);
+  }
+
+  function endGame() {
+    if (state !== "play") return;
+    state = "end";
+    sfx.over();
+    const key = `koala-best-${mode}`;
+    const best = Number(localStorage.getItem(key) || 0);
+    const isNew = score > best;
+    if (isNew) localStorage.setItem(key, score);
+    $("endTitle").textContent = isNew && score > 0 ? "🎉 최고 기록!" : "게임 끝!";
+    $("rScore").textContent = score;
+    $("rAcc").textContent = totalCount ? Math.round((correctCount / totalCount) * 100) + "%" : "0%";
+    $("rCombo").textContent = maxCombo;
+    $("rBest").textContent = `이 모드 최고 점수: ${Math.max(best, score)} · 맞힌 문제 ${correctCount}개`;
+    const review = $("review");
+    if (wrongLog.length) {
+      review.innerHTML = "<h3>📒 오답 노트</h3><ul>" + wrongLog.map((w) =>
+        `<li>${w.text.replace("?", "")} <span class="right">${w.text.includes("?") ? w.answer : "□ = " + w.answer}</span>` +
+        (w.chosen !== null ? `<span class="wrong">${w.chosen}</span>` : ` <small>(놓침)</small>`) + "</li>").join("") + "</ul>";
+      review.classList.remove("hidden");
+    } else {
+      review.classList.add("hidden");
+    }
+    ui.end.classList.remove("hidden");
+  }
+
+  function updateHud() {
+    ui.score.textContent = score;
+    ui.level.textContent = level;
+    ui.hearts.textContent = "❤️".repeat(Math.max(hearts, 0)) + "🤍".repeat(MAX_HEARTS - Math.max(hearts, 0));
+  }
+
+  let toastTimer;
+  function showToast(text, color) {
+    ui.toast.textContent = text; ui.toast.style.color = color; ui.toast.style.opacity = 1;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (ui.toast.style.opacity = 0), 900);
+  }
+
+  function burst(x, y, color) {
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * Math.PI * 2, s = 60 + Math.random() * 160;
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: 0.7, color });
+    }
+  }
+
+  // ---------- 메인 루프 ----------
+  function loop(now) {
+    if (state !== "play") return;
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    update(dt, now);
+    draw(now);
+    requestAnimationFrame(loop);
+  }
+
+  function update(dt, now) {
+    // 코알라 이동
+    const speed = W * 1.1;
+    if (keys.left) koala.x -= speed * dt;
+    if (keys.right) koala.x += speed * dt;
+    if (pointerX !== null) koala.x += (pointerX - koala.x) * Math.min(1, dt * 14);
+    koala.x = Math.min(Math.max(koala.x, koala.r), W - koala.r);
+    koala.mouth = Math.max(0, koala.mouth - dt);
+    koala.sad = Math.max(0, koala.sad - dt);
+
+    // 잎 낙하 & 충돌
+    for (const l of leaves) {
+      if (!l.alive) continue;
+      if (l.fading !== undefined) {
+        l.fading -= dt * 2.5; l.y += l.vy * dt * 0.5;
+        if (l.fading <= 0) l.alive = false;
+        continue;
+      }
+      l.y += l.vy * dt;
+      l.sway += dt * 2;
+      l.rot = Math.sin(l.sway) * 0.3;
+      const dx = l.x - koala.x, dy = l.y - (koala.y - koala.r * 0.2);
+      if (!waveDone && Math.hypot(dx, dy) < l.r + koala.r * 0.8) {
+        l.alive = false;
+        burst(l.x, l.y, l.correct ? "#66bb6a" : "#ff7043");
+        resolve(l.correct, l.value);
+      } else if (l.y - l.r > H) {
+        l.alive = false;
+        if (l.correct && !waveDone) resolve(false, null);
+      }
+    }
+    if (!waveDone && leaves.every((l) => !l.alive)) resolve(false, null);
+    if (waveDone && hearts > 0 && now >= nextWaveAt) newWave();
+
+    // 파티클
+    for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.life -= dt; }
+    particles = particles.filter((p) => p.life > 0);
+  }
+
+  // ---------- 그리기 ----------
+  function draw(now) {
+    // 배경
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#b3e5fc"); g.addColorStop(1, "#e8f5e9");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // 구름
+    ctx.fillStyle = "rgba(255,255,255,.8)";
+    const t = now / 1000;
+    [[0.15, 0.12, 1], [0.7, 0.2, 0.8], [0.45, 0.35, 0.6]].forEach(([cx, cy, s], i) => {
+      const x = ((cx * W + t * 12 * (i + 1)) % (W + 120)) - 60, y = cy * H, r = 22 * s;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.arc(x + r, y - r * 0.4, r * 1.1, 0, 7); ctx.arc(x + r * 2, y, r, 0, 7); ctx.fill();
+    });
+    // 땅
+    ctx.fillStyle = "#9ccc65"; ctx.fillRect(0, H - 18, W, 18);
+    ctx.fillStyle = "#7cb342"; ctx.fillRect(0, H - 18, W, 4);
+
+    // 잎
+    for (const l of leaves) if (l.alive) drawLeaf(l);
+    // 파티클
+    for (const p of particles) { ctx.globalAlpha = Math.max(0, p.life / 0.7); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    drawKoala();
+  }
+
+  function drawLeaf(l) {
+    ctx.save();
+    ctx.globalAlpha = l.fading !== undefined ? Math.max(0, l.fading) : 1;
+    ctx.translate(l.x, l.y); ctx.rotate(l.rot);
+    ctx.fillStyle = "#43a047"; ctx.strokeStyle = "#2e7d32"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(0, 0, l.r * 1.15, l.r * 0.85, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-l.r * 1.05, 0); ctx.lineTo(l.r * 1.05, 0); ctx.stroke();
+    ctx.rotate(-l.rot);
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0, 0, l.r * 0.62, 0, 7); ctx.fill();
+    ctx.fillStyle = "#1b5e20"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const s = String(l.value);
+    ctx.font = `800 ${l.r * (s.length >= 3 ? 0.55 : 0.75)}px sans-serif`;
+    ctx.fillText(s, 0, 2);
+    ctx.restore();
+  }
+
+  function drawKoala() {
+    const { x, y, r } = koala;
+    ctx.save(); ctx.translate(x, y);
+    const gray = "#90a4ae", dark = "#607d8b", pink = "#f8bbd0";
+    // 몸
+    ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(0, r * 0.9, r * 0.8, r * 0.5, 0, Math.PI, 0); ctx.fill();
+    // 귀
+    for (const sx of [-1, 1]) {
+      ctx.fillStyle = gray; ctx.beginPath(); ctx.arc(sx * r * 0.85, -r * 0.55, r * 0.5, 0, 7); ctx.fill();
+      ctx.fillStyle = pink; ctx.beginPath(); ctx.arc(sx * r * 0.85, -r * 0.55, r * 0.28, 0, 7); ctx.fill();
+    }
+    // 얼굴
+    ctx.fillStyle = gray; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+    // 눈
+    ctx.fillStyle = "#263238";
+    if (koala.sad > 0) {
+      ctx.strokeStyle = "#263238"; ctx.lineWidth = 3;
+      for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sx * r * 0.5, -r * 0.25); ctx.lineTo(sx * r * 0.25, -r * 0.15); ctx.stroke(); }
+    } else {
+      for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(sx * r * 0.38, -r * 0.18, r * 0.1, 0, 7); ctx.fill(); }
+    }
+    // 코
+    ctx.fillStyle = "#37474f"; ctx.beginPath(); ctx.ellipse(0, r * 0.12, r * 0.22, r * 0.3, 0, 0, 7); ctx.fill();
+    // 입
+    ctx.strokeStyle = "#37474f"; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    if (koala.mouth > 0) { ctx.fillStyle = "#d81b60"; ctx.arc(0, r * 0.58, r * 0.16, 0, 7); ctx.fill(); }
+    else if (koala.sad > 0) { ctx.arc(0, r * 0.72, r * 0.18, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); }
+    else { ctx.arc(0, r * 0.45, r * 0.18, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke(); }
+    // 볼
+    ctx.fillStyle = "rgba(244,143,177,.5)";
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(sx * r * 0.62, r * 0.25, r * 0.13, 0, 7); ctx.fill(); }
+    ctx.restore();
+  }
+
+  // ---------- 입력 ----------
+  window.addEventListener("keydown", (e) => {
+    if (["ArrowLeft", "a", "A"].includes(e.key)) keys.left = true;
+    if (["ArrowRight", "d", "D"].includes(e.key)) keys.right = true;
+    if (e.key === "Escape" || e.key === "p" || e.key === "P") togglePause();
+    if ((e.key === "Enter" || e.key === " ") && state !== "play" && state !== "pause") { e.preventDefault(); startGame(); }
+    if (keys.left || keys.right) pointerX = null;
+  });
+  window.addEventListener("keyup", (e) => {
+    if (["ArrowLeft", "a", "A"].includes(e.key)) keys.left = false;
+    if (["ArrowRight", "d", "D"].includes(e.key)) keys.right = false;
+  });
+  const setPointer = (e) => { const r = canvas.getBoundingClientRect(); pointerX = e.clientX - r.left; };
+  canvas.addEventListener("pointerdown", (e) => { setPointer(e); canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" || e.buttons) setPointer(e); });
+  canvas.addEventListener("pointerup", (e) => { if (e.pointerType !== "mouse") pointerX = null; });
+
+  function togglePause() {
+    if (state === "play") { state = "pause"; ui.pause.classList.remove("hidden"); }
+    else if (state === "pause") { state = "play"; ui.pause.classList.add("hidden"); lastTime = performance.now(); if (waveDone) nextWaveAt = performance.now() + 300; requestAnimationFrame(loop); }
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden && state === "play") togglePause(); });
+
+  // ---------- 메뉴 ----------
+  function showMenu() {
+    state = "menu";
+    ui.end.classList.add("hidden"); ui.pause.classList.add("hidden"); ui.start.classList.remove("hidden");
+    ui.problem.textContent = "🐨";
+    $("bestStart").textContent = localStorage.getItem(`koala-best-${mode}`) || 0;
+  }
+  $("modes").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-mode]");
+    if (!b) return;
+    mode = b.dataset.mode;
+    document.querySelectorAll("[data-mode]").forEach((x) => x.classList.toggle("selected", x === b));
+    $("bestStart").textContent = localStorage.getItem(`koala-best-${mode}`) || 0;
+  });
+  $("startBtn").onclick = startGame;
+  $("retryBtn").onclick = startGame;
+  $("homeBtn").onclick = showMenu;
+  $("pauseBtn").onclick = togglePause;
+  $("resumeBtn").onclick = togglePause;
+  $("quitBtn").onclick = showMenu;
+
+  resize();
+  showMenu();
+})();
+</script>
+</body>
+</html>
